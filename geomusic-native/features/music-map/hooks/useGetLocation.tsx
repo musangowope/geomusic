@@ -1,41 +1,90 @@
 import { useState, useEffect } from 'react';
-import { Platform, Text, View, StyleSheet } from 'react-native';
-import * as Device from 'expo-device';
 import * as Location from 'expo-location';
 
-export default function useGetLocation() {
-  const [loading, setLoading] = useState<boolean>(true);
-  const [location, setLocation] = useState<Location.LocationObject | null>(
+export interface LocationData {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+}
+
+const useGetLocation = () => {
+  const [currentLocation, setCurrentLocation] = useState<LocationData | null>(
     null
   );
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function getCurrentLocation() {
+    let isMounted = true;
+
+    const getLocation = async () => {
       try {
-        if (Platform.OS === 'android' && !Device.isDevice) {
-          setErrorMsg(
-            'Oops, this will not work on Snack in an Android Emulator. Try it on your device!'
-          );
-          return;
-        }
-        let { status } = await Location.requestForegroundPermissionsAsync();
+        // Request permission first
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
         if (status !== 'granted') {
-          setErrorMsg('Permission to access location was denied');
+          setLocationError('Permission to access location was denied');
           return;
         }
 
-        let location = await Location.getCurrentPositionAsync({});
-        setLocation(location);
-      } catch (e) {
-        setErrorMsg(`Error: ${e.message}`);
-      } finally {
-        setLoading(false);
-      }
-    }
+        // Get location with high accuracy
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest,
+        });
 
-    getCurrentLocation();
+        if (isMounted) {
+          setCurrentLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            accuracy: location.coords.accuracy,
+          });
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLocationError('Could not get your location');
+          console.error('Error getting location:', error);
+        }
+      }
+    };
+
+    getLocation();
+
+    // Set up location subscription for real-time updates
+    let locationSubscription: Location.LocationSubscription;
+
+    const setupLocationUpdates = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Highest,
+            distanceInterval: 10, // Update if user moves 10 meters
+            timeInterval: 5000, // Or every 5 seconds
+          },
+          (location) => {
+            if (isMounted) {
+              setCurrentLocation({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                accuracy: location.coords.accuracy,
+              });
+            }
+          }
+        );
+      }
+    };
+
+    setupLocationUpdates();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, []);
 
-  return { location, errorMsg, loading };
-}
+  return { currentLocation, locationError };
+};
+
+export default useGetLocation;
