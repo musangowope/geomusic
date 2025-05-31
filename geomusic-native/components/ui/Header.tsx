@@ -1,9 +1,9 @@
 import React from 'react';
 import { Pressable, PressableProps, StyleSheet, View } from 'react-native';
-import FontSizes from '@/constants/Typography';
 import { IconProps } from '@/components/ui/icon/types';
 import Icon from '@/components/ui/icon/Icon';
 import { ThemedText } from '@/components/ThemedText';
+import { FontSizes } from '@/constants/Typography';
 
 interface HeaderIconButtonProps {
   pressableProps: PressableProps;
