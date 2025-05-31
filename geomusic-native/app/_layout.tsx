@@ -13,7 +13,6 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SpotifyAuthProvider } from '@/features/authentication/providers/SpotifyAuthProvider';
 import { Provider } from 'react-redux';
-import AuthRedirect from '@/features/authentication/components/AuthRedirect';
 import { store } from '@/redux/store';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -39,7 +38,6 @@ export default function RootLayout() {
     <Provider store={store}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <SpotifyAuthProvider>
-          <AuthRedirect />
           <Stack initialRouteName="login">
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />
