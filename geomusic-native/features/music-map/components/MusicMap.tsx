@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,226 +8,189 @@ import {
   TextInput,
   Dimensions,
   Image,
+  Keyboard,
 } from 'react-native';
+// @ts-ignore
 import MapView, { Marker, Region, MapEvent, Callout } from 'react-native-maps';
+import useGetLocation, {
+  LocationData,
+} from '@/features/music-map/hooks/useGetLocation';
+import { Ionicons } from '@expo/vector-icons';
+import PlaylistMarker, { PlaylistMarkerProps } from './PlaylistMarker';
+import { ThemedText } from '@/components/ThemedText';
+import { SpotifyPlaylistDetailResponse } from '@/features/spotify/interfaces';
+import CtaButton from '@/components/ui/button/Button';
+import { FontSizes } from '@/constants/Typography';
+import {
+  addGeoPlaylist,
+  fetchPlaylists,
+} from '@/redux/slices/geoPlaylistSlice';
+import { useAppDispatch, useAppSelector } from '@/redux/store';
+import { useRouter } from 'expo-router';
 
-// Types for our component
-interface Coordinate {
-  latitude: number;
-  longitude: number;
+// Get screen dimensions for proper delta calculations
+const { width, height } = Dimensions.get('window');
+const ASPECT_RATIO = width / height;
+const LATITUDE_DELTA = 0.01; // More zoomed in for better accuracy
+const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+
+interface MusicMapProps {
+  currentLocation: LocationData;
+  playlist?: SpotifyPlaylistDetailResponse;
 }
 
-interface CustomMarker {
-  id: string;
-  coordinate: Coordinate;
-  title: string;
-  description: string;
-  color?: string;
-}
+const MusicMap = (props: MusicMapProps) => {
+  const { currentLocation, playlist } = props;
+  // const { currentLocation } = useGetLocation();
+  const mapRef = useRef<MapView>(null);
+  const [region, setRegion] = useState<Region>({
+    latitude: 37.78825, // Default latitude
+    longitude: -122.4324, // Default longitude
+    latitudeDelta: LATITUDE_DELTA,
+    longitudeDelta: LONGITUDE_DELTA,
+  });
 
-interface CustomMapWithMarkersProps {
-  initialRegion?: Region;
-  markers?: CustomMarker[];
-  onMarkerAdded?: (marker: CustomMarker) => void;
-  onMarkerSelected?: (marker: CustomMarker) => void;
-  readOnly?: boolean;
-  markerColors?: string[];
-}
+  const dispatch = useAppDispatch();
 
-// Custom Marker Component
-const CustomMarkerComponent: React.FC<{
-  marker: CustomMarker;
-  onPress: () => void;
-}> = ({ marker, onPress }) => {
-  return (
-    <TouchableOpacity onPress={onPress} style={styles.markerContainer}>
-      <View
-        style={[
-          styles.customMarker,
-          { backgroundColor: marker.color || '#FF0000' },
-        ]}
-      >
-        <Text style={styles.markerText}>
-          {marker.title.substring(0, 1).toUpperCase()}
-        </Text>
-      </View>
-    </TouchableOpacity>
+  // State for markers and modal
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  }>(currentLocation);
+  const router = useRouter();
+  const { playlists: playlistMarkers = [] } = useAppSelector(
+    ({ geoPlaylists }) => geoPlaylists
   );
-};
 
-const CustomMapWithMarkers: React.FC<CustomMapWithMarkersProps> = ({
-  initialRegion = {
-    latitude: 37.78825,
-    longitude: -122.4324,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
-  },
-  markers = [],
-  onMarkerAdded,
-  onMarkerSelected,
-  readOnly = false,
-  markerColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'],
-}) => {
-  const [customMarkers, setCustomMarkers] = useState<CustomMarker[]>(markers);
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [selectedCoordinate, setSelectedCoordinate] =
-    useState<Coordinate | null>(null);
-  const [markerTitle, setMarkerTitle] = useState<string>('');
-  const [markerDescription, setMarkerDescription] = useState<string>('');
-  const [selectedColor, setSelectedColor] = useState<string>(markerColors[0]);
+  // Force re-render when markers change
+  const [markersKey, setMarkersKey] = useState(0);
 
-  const mapRef = useRef<MapView | null>(null);
+  console.log('playlisyMarkers', playlistMarkers);
 
-  const handleMapLongPress = (event: MapEvent) => {
-    if (readOnly) return;
+  useEffect(() => {
+    // Fetch playlists when component mounts
+    dispatch(fetchPlaylists());
+  }, []);
 
-    const { coordinate } = event.nativeEvent;
-    setSelectedCoordinate(coordinate);
-    setModalVisible(true);
+  //
+
+  // Update region when currentLocation changes
+  useEffect(() => {
+    if (currentLocation) {
+      const newRegion = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      };
+      setRegion(newRegion);
+
+      // Animate to the new region
+      mapRef.current?.animateToRegion(newRegion);
+    }
+  }, [currentLocation]);
+
+  // Handle map press to add a new marker
+  const handleMapPress = (e: MapEvent) => {
+    setSelectedLocation(e.nativeEvent.coordinate);
   };
 
-  const addMarker = () => {
-    if (!selectedCoordinate) return;
-
-    const newMarker: CustomMarker = {
-      id: Date.now().toString(),
-      coordinate: selectedCoordinate,
-      title: markerTitle || 'New Marker',
-      description: markerDescription || 'No description provided',
-      color: selectedColor,
-    };
-
-    const updatedMarkers = [...customMarkers, newMarker];
-    setCustomMarkers(updatedMarkers);
-
-    // Reset form
-    setSelectedCoordinate(null);
-    setMarkerTitle('');
-    setMarkerDescription('');
-    setModalVisible(false);
-
-    // Call parent callback if provided
-    if (onMarkerAdded) {
-      onMarkerAdded(newMarker);
+  // Center map on user location
+  const centerOnUser = () => {
+    if (currentLocation) {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
+        },
+        1000
+      );
     }
   };
 
-  const handleMarkerPress = (marker: CustomMarker) => {
-    if (onMarkerSelected) {
-      onMarkerSelected(marker);
-    }
+  const pinPlaylist = async () => {
+    console.log('playlist pinned', playlist);
+    if (!playlist || !selectedLocation) return;
+
+    await dispatch(
+      addGeoPlaylist({
+        createdAt: Date.now(),
+        ...playlist,
+        location: {
+          latitude: selectedLocation.latitude,
+          longitude: selectedLocation.longitude,
+        },
+      })
+    );
+
+    // Fetch updated playlists after adding a new one
+    await dispatch(fetchPlaylists());
+
+    // Force map to update markers
+    setMarkersKey((prev) => prev + 1);
+
+    router.replace('/(auth)');
   };
+
+  // Memoize the rendering of markers for better performance
+  const renderMarkers = useCallback(() => {
+    return (
+      <>
+        <PlaylistMarker
+          key="selected-marker"
+          playlist={playlist}
+          coordinate={selectedLocation}
+        />
+        {playlistMarkers.map((marker, index) => (
+          <PlaylistMarker
+            key={`marker-${marker.id || index}-${marker.createdAt}`}
+            playlist={marker}
+            coordinate={marker.location}
+          />
+        ))}
+      </>
+    );
+  }, [selectedLocation, playlist, playlistMarkers, markersKey]);
 
   return (
-    <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={initialRegion}
-        onLongPress={handleMapLongPress}
-      >
-        {customMarkers.map((marker) => (
-          <Marker
-            key={marker.id}
-            coordinate={marker.coordinate}
-            tracksViewChanges={false}
-          >
-            <CustomMarkerComponent
-              marker={marker}
-              onPress={() => handleMarkerPress(marker)}
-            />
-            <Callout>
-              <View style={styles.calloutContainer}>
-                <Text style={styles.calloutTitle}>{marker.title}</Text>
-                <Text style={styles.calloutDescription}>
-                  {marker.description}
-                </Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
+    <>
+      <ThemedText>
+        {selectedLocation?.latitude} {selectedLocation?.longitude}
+      </ThemedText>
+      <View style={styles.container}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          initialRegion={region}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          // TODO: I might change this ux later
+          onLongPress={handleMapPress}
+          key={`map-${markersKey}`}
+        >
+          {renderMarkers()}
+        </MapView>
 
-      {!readOnly && (
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => {
-              if (mapRef.current) {
-                mapRef.current.getCamera().then((camera) => {
-                  setSelectedCoordinate({
-                    latitude: camera.center.latitude,
-                    longitude: camera.center.longitude,
-                  });
-                  setModalVisible(true);
-                });
-              }
-            }}
-          >
-            <Text style={styles.buttonText}>Add Marker at Center</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Marker</Text>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
-                onPress={addMarker}
-              >
-                <Text style={styles.buttonText}>Add</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Marker Title"
-              value={markerTitle}
-              onChangeText={setMarkerTitle}
-            />
-
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Marker Description"
-              value={markerDescription}
-              onChangeText={setMarkerDescription}
-              multiline
-            />
-
-            <Text style={styles.colorSelectorLabel}>Select Color:</Text>
-            <View style={styles.colorSelector}>
-              {markerColors.map((color) => (
-                <TouchableOpacity
-                  key={color}
-                  style={[
-                    styles.colorOption,
-                    { backgroundColor: color },
-                    selectedColor === color && styles.selectedColorOption,
-                  ]}
-                  onPress={() => setSelectedColor(color)}
-                />
-              ))}
-            </View>
+        {selectedLocation && (
+          <View style={styles.pinButtonContainer}>
+            <CtaButton
+              onPress={pinPlaylist}
+              mode={'secondary'}
+              text={'Pin Playlist'}
+              style={styles.pinButton}
+              textStyle={styles.pinButtonText}
+            ></CtaButton>
           </View>
-        </View>
-      </Modal>
-    </View>
+        )}
+
+        {/* Custom location button */}
+        <TouchableOpacity style={styles.locationButton} onPress={centerOnUser}>
+          <Ionicons name="locate" size={24} color="#007AFF" />
+        </TouchableOpacity>
+      </View>
+    </>
   );
 };
 
@@ -239,121 +202,36 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  buttonContainer: {
+  pinButtonContainer: {
     position: 'absolute',
-    bottom: 16,
-    alignSelf: 'center',
+    bottom: 20,
+    left: 20,
   },
-  addButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    elevation: 4,
+
+  pinButton: {
+    padding: 20,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    textAlign: 'center',
+
+  pinButtonText: {
+    fontSize: FontSizes.xxl,
   },
-  modalContainer: {
-    flex: 1,
+
+  locationButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'white',
+    borderRadius: 30,
+    width: 50,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '80%',
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  colorSelectorLabel: {
-    marginBottom: 8,
-    fontWeight: 'bold',
-  },
-  colorSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
-  },
-  colorOption: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-  },
-  selectedColorOption: {
-    borderWidth: 3,
-    borderColor: '#000',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  modalButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  cancelButton: {
-    backgroundColor: '#ff5252',
-  },
-  // Custom marker styles
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
-  markerText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  calloutContainer: {
-    width: 200,
-    padding: 10,
-  },
-  calloutTitle: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  calloutDescription: {
-    fontSize: 14,
-  },
 });
 
-export default CustomMapWithMarkers;
+export default MusicMap;
