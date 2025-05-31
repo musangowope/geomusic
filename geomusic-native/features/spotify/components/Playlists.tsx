@@ -46,7 +46,7 @@ const Playlists = (props: PlaylistsProps) => {
       cta: {
         onPress: () => {
           router.navigate({
-            pathname: '/(playlists)/pin-playlist',
+            pathname: '/(auth)/pin-playlist',
             params: {
               id: data.id,
             },

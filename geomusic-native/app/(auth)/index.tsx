@@ -6,10 +6,14 @@ import MusicMap from '@/features/music-map/components/MusicMap';
 import ProfileMenu, { ProfileMenuProps } from '@/components/ui/ProfileMenu';
 import IconButton from '@/components/ui/iconButton/IconButton';
 import { Link, useRouter } from 'expo-router';
+import useGetLocation from '@/features/music-map/hooks/useGetLocation';
 
 export default function HomeScreen() {
   const { userInfo, logout } = useSpotifyAuth();
+
   const router = useRouter();
+
+  const { currentLocation } = useGetLocation();
 
   const handleLogout = async () => {
     await logout();
@@ -36,18 +40,19 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       {profileMenuProps && <ProfileMenu {...profileMenuProps} />}
-      <MusicMap />
+      {currentLocation && <MusicMap currentLocation={currentLocation} />}
 
       <View style={styles.searchButtonContainer}>
         <IconButton iconName={'search1'} iconType={'AntDesign'} />
       </View>
       <View style={styles.addPlaylistButtonContainer}>
-        <Link href="/(playlists)">
-          <IconButton
-            iconName={'music-note-plus'}
-            iconType={'MaterialCommunityIcons'}
-          />
-        </Link>
+        <IconButton
+          onPress={() => {
+            router.navigate('/(playlists)');
+          }}
+          iconName={'music-note-plus'}
+          iconType={'MaterialCommunityIcons'}
+        />
       </View>
       {/*<Button onPress={handleLogout} title="Logout"></Button>*/}
       {/*<Playlists />*/}
@@ -71,6 +76,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     right: 20,
-    zIndex: 99,
+    zIndex: 999,
   },
 });

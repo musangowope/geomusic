@@ -1,11 +1,11 @@
 import React from 'react';
-import { useGetPlaylistsQuery } from '@/redux/api/playlistApi';
 import useThemeColors from '@/hooks/useThemeColors';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import Header from '@/components/ui/Header';
 import Playlists from '@/features/spotify/components/Playlists';
 import { useRouter } from 'expo-router';
+import { useGetPlaylistsQuery } from '@/redux/queries/spotifyPlaylistQuery';
 
 const PlaylistsScreen = () => {
   const { error, data, isFetching, isLoading } = useGetPlaylistsQuery();

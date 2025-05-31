@@ -4,34 +4,54 @@ import MusicMap from '@/features/music-map/components/MusicMap';
 import Header from '@/components/ui/Header';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import useThemeColors from '@/hooks/useThemeColors';
-import Input from '@/components/ui/input/Input';
-import { useGetPlaylistByIdQuery } from '@/redux/api/playlistApi';
-import { SpotifyPlaylistDetailResponse } from '@/features/spotify/interfaces';
-import Card, { CardProps } from '@/components/ui/card/Card';
 import { ThemedView } from '@/components/ThemedView';
+import { AddressAutocomplete } from '@/features/music-map/components/AutoSearchSuggestion';
+import useGetLocation, {
+  LocationData,
+} from '@/features/music-map/hooks/useGetLocation';
+import React, { useEffect, useState } from 'react';
+import googleMapsService, {
+  PlacePrediction,
+} from '@/features/music-map/services/google-maps.service';
+import CtaButton from '@/components/ui/button/Button';
+import { useGetPlaylistByIdQuery } from '@/redux/queries/spotifyPlaylistQuery';
 
 export default function PinPlaylistScreen() {
+  const [locationState, setLocation] = useState<LocationData | null>(null);
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  console.log('id', id);
-  const { data, isLoading, isFetching } = useGetPlaylistByIdQuery(id as string);
+  const {
+    data: playlist,
+    isLoading,
+    isFetching,
+  } = useGetPlaylistByIdQuery(id as string);
   const themeColors = useThemeColors();
+
+  const { currentLocation } = useGetLocation();
+  const onSelectAddress = (address: PlacePrediction) => {
+    (async () => {
+      const placeDetails = await googleMapsService.getPlaceDetails(
+        address.place_id
+      );
+      console.log('placeDetails', placeDetails);
+      if (!placeDetails) return;
+      const { location } = placeDetails;
+      setLocation({
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+    })();
+  };
+  useEffect(() => {
+    if (!currentLocation) return;
+    setLocation(currentLocation);
+  }, [currentLocation]);
 
   if (isLoading || isFetching) return null;
 
-  console.log('data', data);
-
-  const cardProps = (data: SpotifyPlaylistDetailResponse): CardProps => {
-    return {
-      title: data.name,
-      circleImage: data.images[0].url,
-      subtitle: `${data.tracks.total} songs`,
-    };
-  };
-
   return (
     <SafeAreaView style={styles.screen}>
-      <ThemedView>
+      <ThemedView style={styles.headerContainer}>
         <Header
           leftIcon={{
             iconProps: {
@@ -45,26 +65,56 @@ export default function PinPlaylistScreen() {
           }}
           headerText={'Choose a location'}
         />
-        <View style={styles.header}>
-          {/*<Card {...cardProps(data as SpotifyPlaylistDetailResponse)} />*/}
-          <Input placeholder="Add or coordinates" />
-        </View>
+        <ThemedView style={styles.inputButtonContainer}>
+          <ThemedView style={styles.autoSuggestion}>
+            <AddressAutocomplete onSelectAddress={onSelectAddress} />
+          </ThemedView>
+        </ThemedView>
       </ThemedView>
-      <MusicMap />
+
+      {locationState && (
+        <ThemedView style={styles.musicMapContainer}>
+          <MusicMap currentLocation={locationState} playlist={playlist} />
+        </ThemedView>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
+    backgroundColor: 'black',
     flex: 1,
     height: '100%',
+    position: 'relative',
   },
-  header: {
-    padding: 20,
+  headerContainer: {
+    position: 'relative',
+    zIndex: 99,
+    paddingBottom: 20,
+    // paddingRight: 20,
+    // paddingLeft: 20,
+  },
+
+  autoSuggestion: {
+    marginBottom: 20,
+  },
+  inputButtonContainer: {
+    paddingRight: 30,
+    paddingLeft: 30,
+  },
+
+  musicMapContainer: {
     width: '100%',
-    maxWidth: 400,
-    marginLeft: 'auto',
-    marginRight: 'auto',
+    height: '100%',
+    position: 'absolute',
+    // top: 0,
+    bottom: 0,
+    left: 0,
+  },
+
+  cta: {
+    // display:
+    // width: 150,
   },
 });

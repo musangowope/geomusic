@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-  FlatList,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-} from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet } from 'react-native';
 import Header from '@/components/ui/Header';
-import { useGetPlaylistByIdQuery } from '@/redux/api/playlistApi';
 import { useLocalSearchParams } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import MiddleCtasCard, {
@@ -15,6 +8,7 @@ import MiddleCtasCard, {
 } from '@/components/ui/card/MiddleCtasCard';
 import useThemeColors from '@/hooks/useThemeColors';
 import { PlaylistTrackItem } from '@/features/spotify/interfaces';
+import { useGetPlaylistByIdQuery } from '@/redux/queries/spotifyPlaylistQuery';
 
 const PlaylistDetailScreen = () => {
   const { id } = useLocalSearchParams();
