@@ -7,8 +7,8 @@ import {
   SpotifyPlaylistDetailResponse,
 } from '@/features/spotify/interfaces';
 
-export const playlistsApi = createApi({
-  reducerPath: 'playlistsApi',
+export const spotifyPlaylistsQuery = createApi({
+  reducerPath: 'spotifyPlaylistsQuery',
   baseQuery: fetchBaseQuery({
     baseUrl: 'https://api.spotify.com/v1/',
     prepareHeaders: async (headers) => {
@@ -33,15 +33,8 @@ export const playlistsApi = createApi({
     getPlaylistById: builder.query<SpotifyPlaylistDetailResponse, string>({
       query: (playlistId) => `playlists/${playlistId}`,
     }),
-    getUserPlaylists: builder.query<PlaylistItem[], string>({
-      query: (userId) => `users/${userId}/playlists`,
-      transformResponse: (response: SpotifyPlaylistsResponse) => response.items,
-    }),
   }),
 });
 
-export const {
-  useGetPlaylistsQuery,
-  useGetPlaylistByIdQuery,
-  useGetUserPlaylistsQuery,
-} = playlistsApi;
+export const { useGetPlaylistsQuery, useGetPlaylistByIdQuery } =
+  spotifyPlaylistsQuery;
