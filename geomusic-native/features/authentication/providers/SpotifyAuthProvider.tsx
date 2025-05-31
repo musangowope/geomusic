@@ -1,18 +1,13 @@
-import React, {
-  createContext,
-  useState,
-  useContext,
-  useEffect,
-  ReactNode,
-} from 'react';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import {
   makeRedirectUri,
   useAuthRequest,
   exchangeCodeAsync,
-  TokenResponse,
 } from 'expo-auth-session';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { Platform } from 'react-native';
 
 // Initialize WebBrowser for auth session
 WebBrowser.maybeCompleteAuthSession();
@@ -87,6 +82,8 @@ export const SpotifyAuthProvider: React.FC<SpotifyAuthProviderProps> = ({
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [userInfo, setUserInfo] = useState<SpotifyUserProfile | null>(null);
+
+  const router = useRouter();
 
   const redirectUri = makeRedirectUri({
     scheme: 'com.playfului.geomusic-native',
@@ -200,6 +197,14 @@ export const SpotifyAuthProvider: React.FC<SpotifyAuthProviderProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (userInfo) {
+      router.replace('/(auth)');
+    } else {
+      router.replace('/login');
+    }
+  }, [userInfo]);
+
   // Refresh the access token
   const refreshAccessToken = async (
     storedRefreshToken: string
@@ -211,7 +216,13 @@ export const SpotifyAuthProvider: React.FC<SpotifyAuthProviderProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+          Authorization: `Basic ${
+            Platform.OS === 'web'
+              ? window.btoa(`${clientId}:${clientSecret}`)
+              : require('react-native').Base64.btoa(
+                  `${clientId}:${clientSecret}`
+                )
+          }`,
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
