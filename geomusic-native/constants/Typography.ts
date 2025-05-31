@@ -23,5 +23,3 @@ export const FontWeights = {
   semiBold: '600',
   bold: '700',
 };
-
-export default FontSizes;
