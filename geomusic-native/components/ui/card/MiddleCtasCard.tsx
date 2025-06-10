@@ -28,5 +28,6 @@ const styles = StyleSheet.create({
   buttons: {
     position: 'absolute',
     right: 10,
+    flexDirection: 'row',
   },
 });
