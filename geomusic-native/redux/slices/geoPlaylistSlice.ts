@@ -8,13 +8,15 @@ import {
 } from '@/features/firebase/config';
 
 // Define the GeoPlaylist interface that extends SpotifyPlaylistDetailResponse with location data
-export interface GeoPlaylist extends SpotifyPlaylistDetailResponse {
+export interface GeoPlaylist {
   location: {
     latitude: number;
     longitude: number;
   };
-  createdAt: number; // timestamp
+  createdAt?: number; // timestamp
   createdBy?: string; // user ID who created this geotagged playlist
+  spotifyPlaylist: SpotifyPlaylistDetailResponse;
+  id?: string;
 }
 
 // Define the state interface
@@ -89,11 +91,11 @@ export const fetchPlaylistsNearLocation = createAsyncThunk(
 
 export const addGeoPlaylist = createAsyncThunk(
   'playlists/addGeoPlaylist',
-  async (playlist: Omit<GeoPlaylist, 'id'>) => {
+  async (data: Omit<GeoPlaylist, 'id'>) => {
     // Ensure createdAt is set
     const playlistWithTimestamp = {
-      ...playlist,
-      createdAt: playlist.createdAt || Date.now(),
+      ...data,
+      createdAt: Date.now(),
     };
 
     const docRef = await addDataToCollection(
@@ -106,23 +108,17 @@ export const addGeoPlaylist = createAsyncThunk(
 
 export const updateGeoPlaylist = createAsyncThunk(
   'playlists/updateGeoPlaylist',
-  async ({
-    playlistId,
-    updates,
-  }: {
-    playlistId: string;
-    updates: Partial<GeoPlaylist>;
-  }) => {
-    await updateDocument(COLLECTION_NAME, playlistId, updates);
-    return { id: playlistId, ...updates };
+  async ({ id, updates }: { id: string; updates: Partial<GeoPlaylist> }) => {
+    await updateDocument(COLLECTION_NAME, id, updates);
+    return { id: id, ...updates };
   }
 );
 
 export const deleteGeoPlaylist = createAsyncThunk(
   'playlists/deleteGeoPlaylist',
-  async (playlistId: string) => {
-    await deleteDocument(COLLECTION_NAME, playlistId);
-    return playlistId;
+  async (id: string) => {
+    await deleteDocument(COLLECTION_NAME, id);
+    return id;
   }
 );
 
@@ -273,12 +269,12 @@ const playlistsSlice = createSlice({
       })
       .addCase(deleteGeoPlaylist.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        const playlistId = action.payload;
+        const id = action.payload;
         state.playlists = state.playlists.filter(
-          (playlist) => playlist.id !== playlistId
+          (playlist) => playlist.id !== id
         );
         state.filteredPlaylists = state.filteredPlaylists.filter(
-          (playlist) => playlist.id !== playlistId
+          (playlist) => playlist.id !== id
         );
       })
       .addCase(deleteGeoPlaylist.rejected, (state, action) => {
