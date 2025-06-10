@@ -7,23 +7,19 @@ import {
   Modal,
   TextInput,
   Dimensions,
-  Image,
-  Keyboard,
 } from 'react-native';
 // @ts-ignore
 import MapView, { Marker, Region, MapEvent, Callout } from 'react-native-maps';
-import useGetLocation, {
-  LocationData,
-} from '@/features/music-map/hooks/useGetLocation';
+import { LocationData } from '@/features/music-map/hooks/useGetLocation';
 import { Ionicons } from '@expo/vector-icons';
-import PlaylistMarker, { PlaylistMarkerProps } from './PlaylistMarker';
-import { ThemedText } from '@/components/ThemedText';
+import PlaylistMarker from './PlaylistMarker';
 import { SpotifyPlaylistDetailResponse } from '@/features/spotify/interfaces';
 import CtaButton from '@/components/ui/button/Button';
 import { FontSizes } from '@/constants/Typography';
 import {
   addGeoPlaylist,
   fetchPlaylists,
+  GeoPlaylist,
 } from '@/redux/slices/geoPlaylistSlice';
 import { useAppDispatch, useAppSelector } from '@/redux/store';
 import { useRouter } from 'expo-router';
@@ -34,14 +30,16 @@ const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.01; // More zoomed in for better accuracy
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-interface MusicMapProps {
+export interface MusicMapProps {
   currentLocation: LocationData;
   playlist?: SpotifyPlaylistDetailResponse;
+  events?: {
+    onPlaylistMarkerPress: (geoPlaylist: GeoPlaylist) => void;
+  };
 }
 
 const MusicMap = (props: MusicMapProps) => {
-  const { currentLocation, playlist } = props;
-  // const { currentLocation } = useGetLocation();
+  const { currentLocation, playlist, events } = props;
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>({
     latitude: 37.78825, // Default latitude
@@ -49,6 +47,8 @@ const MusicMap = (props: MusicMapProps) => {
     latitudeDelta: LATITUDE_DELTA,
     longitudeDelta: LONGITUDE_DELTA,
   });
+
+  console.log('events', events?.onPlaylistMarkerPress);
 
   const dispatch = useAppDispatch();
 
@@ -65,14 +65,17 @@ const MusicMap = (props: MusicMapProps) => {
   // Force re-render when markers change
   const [markersKey, setMarkersKey] = useState(0);
 
-  console.log('playlisyMarkers', playlistMarkers);
-
+  // Fetch playlists when component mounts
   useEffect(() => {
-    // Fetch playlists when component mounts
-    dispatch(fetchPlaylists());
-  }, []);
+    const loadPlaylists = async () => {
+      await dispatch(fetchPlaylists());
+      // Update markersKey to force re-render after playlists are loaded
+      setMarkersKey((prev) => prev + 1);
+    };
 
-  //
+    loadPlaylists();
+    console.log('do I run again?');
+  }, [dispatch]);
 
   // Update region when currentLocation changes
   useEffect(() => {
@@ -89,6 +92,13 @@ const MusicMap = (props: MusicMapProps) => {
       mapRef.current?.animateToRegion(newRegion);
     }
   }, [currentLocation]);
+
+  // Update markersKey when playlistMarkers change to force re-render
+  useEffect(() => {
+    if (playlistMarkers.length > 0) {
+      setMarkersKey((prev) => prev + 1);
+    }
+  }, [playlistMarkers]);
 
   // Handle map press to add a new marker
   const handleMapPress = (e: MapEvent) => {
@@ -111,54 +121,57 @@ const MusicMap = (props: MusicMapProps) => {
   };
 
   const pinPlaylist = async () => {
-    console.log('playlist pinned', playlist);
     if (!playlist || !selectedLocation) return;
 
     await dispatch(
       addGeoPlaylist({
         createdAt: Date.now(),
-        ...playlist,
         location: {
           latitude: selectedLocation.latitude,
           longitude: selectedLocation.longitude,
         },
+        spotifyPlaylist: playlist,
       })
     );
 
     // Fetch updated playlists after adding a new one
-    await dispatch(fetchPlaylists());
+    // await dispatch(fetchPlaylists());
 
     // Force map to update markers
     setMarkersKey((prev) => prev + 1);
-
-    router.replace('/(auth)');
+    // TODO: there is probably a better way to do this
+    Array.from(Array(2).keys()).forEach(() => {
+      router.back();
+    });
   };
 
-  // Memoize the rendering of markers for better performance
+  // Render markers - removed memoization to ensure it always renders with fresh data
   const renderMarkers = useCallback(() => {
     return (
       <>
-        <PlaylistMarker
-          key="selected-marker"
-          playlist={playlist}
-          coordinate={selectedLocation}
-        />
+        {selectedLocation && playlist && (
+          <PlaylistMarker
+            key="selected-marker"
+            spotifyPlaylist={playlist}
+            location={selectedLocation}
+          />
+        )}
         {playlistMarkers.map((marker, index) => (
           <PlaylistMarker
             key={`marker-${marker.id || index}-${marker.createdAt}`}
-            playlist={marker}
-            coordinate={marker.location}
+            spotifyPlaylist={marker.spotifyPlaylist}
+            location={marker.location}
+            events={{
+              onPress: () => events?.onPlaylistMarkerPress(marker),
+            }}
           />
         ))}
       </>
     );
-  }, [selectedLocation, playlist, playlistMarkers, markersKey]);
+  }, [selectedLocation, playlistMarkers]);
 
   return (
     <>
-      <ThemedText>
-        {selectedLocation?.latitude} {selectedLocation?.longitude}
-      </ThemedText>
       <View style={styles.container}>
         <MapView
           ref={mapRef}
@@ -166,14 +179,13 @@ const MusicMap = (props: MusicMapProps) => {
           initialRegion={region}
           showsUserLocation={true}
           showsMyLocationButton={true}
-          // TODO: I might change this ux later
           onLongPress={handleMapPress}
           key={`map-${markersKey}`}
         >
           {renderMarkers()}
         </MapView>
 
-        {selectedLocation && (
+        {selectedLocation && playlist && (
           <View style={styles.pinButtonContainer}>
             <CtaButton
               onPress={pinPlaylist}
@@ -181,7 +193,7 @@ const MusicMap = (props: MusicMapProps) => {
               text={'Pin Playlist'}
               style={styles.pinButton}
               textStyle={styles.pinButtonText}
-            ></CtaButton>
+            />
           </View>
         )}
 
@@ -207,15 +219,12 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
   },
-
   pinButton: {
     padding: 20,
   },
-
   pinButtonText: {
     fontSize: FontSizes.xxl,
   },
-
   locationButton: {
     position: 'absolute',
     bottom: 20,
