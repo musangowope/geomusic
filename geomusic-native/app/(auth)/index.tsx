@@ -2,11 +2,14 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedView } from '@/components/ThemedView';
 import { useSpotifyAuth } from '@/features/authentication/hooks/useSpotifyAuth';
-import MusicMap from '@/features/music-map/components/MusicMap';
+import MusicMap, {
+  MusicMapProps,
+} from '@/features/music-map/components/MusicMap';
 import ProfileMenu, { ProfileMenuProps } from '@/components/ui/ProfileMenu';
 import IconButton from '@/components/ui/iconButton/IconButton';
 import { Link, useRouter } from 'expo-router';
 import useGetLocation from '@/features/music-map/hooks/useGetLocation';
+import { GeoPlaylist } from '@/redux/slices/geoPlaylistSlice';
 
 export default function HomeScreen() {
   const { userInfo, logout } = useSpotifyAuth();
@@ -20,6 +23,21 @@ export default function HomeScreen() {
   };
 
   const profileImage = userInfo?.images[0].url || '';
+
+  const onMarkerPress = (geoPlaylist: GeoPlaylist) => {
+    router.navigate(`/${geoPlaylist.spotifyPlaylist.id}`);
+  };
+
+  const musicMapProps: MusicMapProps | null = currentLocation
+    ? {
+        currentLocation,
+        events: {
+          onPlaylistMarkerPress: onMarkerPress,
+        },
+      }
+    : null;
+
+  console.log('music props', musicMapProps);
 
   const profileMenuProps: ProfileMenuProps | null = profileImage
     ? {
@@ -40,7 +58,7 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       {profileMenuProps && <ProfileMenu {...profileMenuProps} />}
-      {currentLocation && <MusicMap currentLocation={currentLocation} />}
+      {musicMapProps && <MusicMap {...musicMapProps} />}
 
       <View style={styles.searchButtonContainer}>
         <IconButton iconName={'search1'} iconType={'AntDesign'} />
