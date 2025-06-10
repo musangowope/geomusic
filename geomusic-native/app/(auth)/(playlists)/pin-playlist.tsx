@@ -13,7 +13,6 @@ import React, { useEffect, useState } from 'react';
 import googleMapsService, {
   PlacePrediction,
 } from '@/features/music-map/services/google-maps.service';
-import CtaButton from '@/components/ui/button/Button';
 import { useGetPlaylistByIdQuery } from '@/redux/queries/spotifyPlaylistQuery';
 
 export default function PinPlaylistScreen() {
@@ -33,7 +32,6 @@ export default function PinPlaylistScreen() {
       const placeDetails = await googleMapsService.getPlaceDetails(
         address.place_id
       );
-      console.log('placeDetails', placeDetails);
       if (!placeDetails) return;
       const { location } = placeDetails;
       setLocation({
