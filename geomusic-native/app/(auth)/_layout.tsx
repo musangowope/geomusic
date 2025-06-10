@@ -11,6 +11,13 @@ export default function AuthLayout() {
     <Stack initialRouteName="index">
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(playlists)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="[id]"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
     </Stack>
   );
 }
