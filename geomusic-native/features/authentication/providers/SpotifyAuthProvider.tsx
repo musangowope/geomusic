@@ -7,7 +7,6 @@ import {
 } from 'expo-auth-session';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { Platform } from 'react-native';
 
 // Initialize WebBrowser for auth session
 WebBrowser.maybeCompleteAuthSession();
@@ -59,6 +58,7 @@ interface SpotifyTokenResponse {
 export interface SpotifyAuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
+  refreshToken: string | null;
   authToken: string | null;
   userInfo: SpotifyUserProfile | null;
   login: () => Promise<void>;
@@ -216,13 +216,9 @@ export const SpotifyAuthProvider: React.FC<SpotifyAuthProviderProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: `Basic ${
-            Platform.OS === 'web'
-              ? window.btoa(`${clientId}:${clientSecret}`)
-              : require('react-native').Base64.btoa(
-                  `${clientId}:${clientSecret}`
-                )
-          }`,
+          Authorization: `Basic ${require('react-native').Base64.btoa(
+            `${clientId}:${clientSecret}`
+          )}`,
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
@@ -338,6 +334,7 @@ export const SpotifyAuthProvider: React.FC<SpotifyAuthProviderProps> = ({
   const value: SpotifyAuthContextValue = {
     isAuthenticated: isTokenValid(),
     isLoading,
+    refreshToken,
     authToken,
     userInfo,
     login,
