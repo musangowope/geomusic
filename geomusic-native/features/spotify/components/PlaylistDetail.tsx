@@ -99,7 +99,18 @@ const PlaylistDetail = (props: PlaylistDetailProps) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header headerText={data?.name}></Header>
+      <Header
+        headerText={data?.name}
+        rightIcon={{
+          pressableProps: {},
+          iconProps: {
+            color: themeColors.spotifyGreen,
+            size: 38,
+            iconType: 'Entypo',
+            iconName: 'spotify',
+          },
+        }}
+      ></Header>
       <ScrollView style={styles.scrollView}>
         {data?.tracks.items.map((item, index) => (
           <MiddleCtasCard key={index} {...cardProps(item)} />
