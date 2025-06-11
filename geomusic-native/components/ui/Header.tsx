@@ -29,10 +29,8 @@ const Header = (props: HeaderProps) => {
         <ThemedText style={styles.headerText}>{headerText}</ThemedText>
       )}
       {rightIcon && (
-        <Pressable {...rightIcon.pressableProps}>
-          <View style={styles.rightIcon}>
-            <Icon {...rightIcon.iconProps} />
-          </View>
+        <Pressable {...rightIcon.pressableProps} style={styles.rightIcon}>
+          <Icon {...rightIcon.iconProps} />
         </Pressable>
       )}
     </View>
@@ -49,6 +47,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
     flexDirection: 'row',
+    alignItems: 'center',
   },
 
   headerText: {
@@ -56,7 +55,7 @@ const styles = StyleSheet.create({
   },
   leftIcon: {
     position: 'absolute',
-    left: 30,
+    left: 10,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
@@ -64,5 +63,8 @@ const styles = StyleSheet.create({
   rightIcon: {
     position: 'absolute',
     right: 10,
+    alignItems: 'center',
+    marginTop: 'auto',
+    marginBottom: 'auto',
   },
 });
