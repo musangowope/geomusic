@@ -27,7 +27,9 @@ export default MiddleCtasCard;
 const styles = StyleSheet.create({
   buttons: {
     position: 'absolute',
-    right: 10,
+    top: 10,
+    right: 15,
     flexDirection: 'row',
+    gap: 10,
   },
 });
